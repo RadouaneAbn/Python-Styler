@@ -1,0 +1,133 @@
+#!/usr/bin/python3
+
+import pycodestyle
+import sys
+import os
+import re
+
+# tmp_file = "work_in_progress"  # gdb
+style = pycodestyle.StyleGuide()
+
+
+class fixer():
+    """This class is for fixing pycodestyle of a file"""
+    def __init__(self):
+        self.data = []
+        self.new_data = []
+        self.added_lines = 0
+        self.errors = []
+        self.current_error = ""
+
+    def save_copy(self, file_name):
+        """This method reads the content of a file if it exists"""
+        try:
+            with open(file_name, "r") as f:
+                self.data.extend(f.readlines())
+        except FileNotFoundError as e:
+            print(f"No such file or directory: '{file_name}'")
+            exit(1)
+        # with open(tmp_file, "w") as f:  # gdb
+        #     f.writelines(self.data)  # gdb
+
+    def scan(self, file_name):
+        """This method get the pycodestyle errors of a file"""
+        # errors = []
+        py_code = f"pycodestyle {file_name}"
+        output = os.popen(py_code).read()
+        lines = output.split('\n')
+        for line in lines:
+            patt = re.compile(r"^([^:]+):(\d+):(\d+):\s(\S+)\s(.*)$")
+            res = patt.match(line)
+            if res:
+                # print(res.groups())  # gdb
+                tmp_dict = {
+                "file": res.group(1),
+                "line": int(res.group(2)),
+                "idx": int(res.group(3)),
+                "code": res.group(4),
+                "msg": res.group(5)
+                }
+            self.errors.insert(0, tmp_dict)
+        return self.errors
+
+    def white_space(self, n):
+        """ W291
+        This method removes the white spaces in a line"""
+        # n += self.added_lines  # gdb
+        ref = self.data[n - 1]
+        if re.match(r"^\s+$", ref):
+            self.data[n - 1] = ref.strip(" \t")
+        else:
+            self.data[n - 1] = re.sub(r"[ \t]+$", "", ref)
+
+    def new_line(self, n):
+        idx = re.match(r"^.*(\d+).*(\d+)", self.current_error)
+        i = int(idx.group(1)) - int(idx.group(2))
+        for l in range(i):
+            self.data.insert(n - 1, "\n")
+
+    def pop_line(self, n):
+        """removes a line"""
+        i = 0
+        search = re.match(r".*(\d+).*$", self.current_error)
+        idx = int(search.group(1))
+        # while re.match(r"^\s*$",  self.data[n - 2 - i - 1]):  # gdb
+        for i in range(idx - 1):
+            # print("pop")  # gdb
+            self.data.pop(n - idx)
+
+    def pop_line_decorator(self, n):
+        """removes a line"""
+        i = 0
+        while re.match(r"^\s*$",  self.data[n - 2 - i]):
+            # print("pop")  # gdb
+            self.data.pop(n - 2 - i)
+            i += 1
+
+    def end_line(self, n):
+        """add a new line to end of the file"""
+        self.data.append("\n")
+        self.white_space(n)
+        # self.data.pop(n)  #gdb
+        # print("end")  # gdb
+
+
+if __name__ == '__main__':
+    if len(sys.argv) <= 1:
+        print("Usage: fixer FILE")
+
+    file_path = sys.argv[1]
+    start = fixer()
+
+    func = {
+            "W291": start.white_space,
+            "W292": start.end_line,
+            "W293": start.white_space,
+            "E301": start.new_line,
+            "E302": start.new_line,
+            "E303": start.pop_line,
+            "E304": start.pop_line_decorator,
+            "E305": start.new_line
+        }
+
+    start.save_copy(file_path)
+
+    errors = start.scan(file_path)
+    # print(errors)  # gdb
+    tmp_err = ""
+    for err in errors:
+        name = err['code']
+        n = int(err['line'])
+        start.current_error = err['msg']
+        if err == tmp_err:
+            continue
+        try:
+            # print(err)  # gdb
+            func[name](n)
+        except Exception:
+            pass
+        tmp_err = err
+        # print(err)  # gdb
+
+    with open(file_path, "w") as f:
+        f.writelines(start.data)

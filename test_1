@@ -1,0 +1,17 @@
+#!/bin/bash
+
+
+cp files/rec .
+
+echo "Before:"
+echo ">>>"
+pycodestyle rec
+echo "<<<"
+
+./fixer rec
+
+echo ""
+echo "After:"
+echo ">>>"
+pycodestyle rec
+echo "<<<"
