@@ -110,20 +110,21 @@ if __name__ == '__main__':
             "E305": start.new_line
         }
 
+    # Save the files content
     start.save_copy(file_path)
 
+    # Scan the file for the errors
     errors = start.scan(file_path)
+
     # print(errors)  # gdb
     tmp_err = ""
     for err in errors:
-        name = err['code']
-        n = int(err['line'])
         start.current_error = err['msg']
         if err == tmp_err:
             continue
         try:
             # print(err)  # gdb
-            func[name](n)
+            func[err['code']](err['line'])
         except Exception:
             pass
         tmp_err = err
